@@ -33,5 +33,5 @@ class TreeLSTM(torch.nn.Module):
                 cur_batch.batch_dgl_graph.ndata['x'] = prev_batch.batch_dgl_graph.ndata['h']
             cur_batch.batch_dgl_graph.update_all(message_func, self.cell.reduce_func, apply_node_func)
             cur_batch.batch_dgl_graph.ndata['iou'] = self.cell.W_iou(self.dropout(batch.batch_dgl_graph.ndata['x']))
-            dgl.prop_nodes_topo(cur_batch.batch_dgl_graph)
+            dgl.prop_nodes_topo(cur_batch.batch_dgl_graph, message_func, self.cell.reduce_func, False, apply_node_func)
         return batches

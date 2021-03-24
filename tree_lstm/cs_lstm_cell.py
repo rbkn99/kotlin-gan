@@ -14,3 +14,11 @@ class ChildSumTreeLSTMCell(torch.nn.Module):
         f = torch.sigmoid(self.U_f(nodes.mailbox['h']))
         c = torch.sum(f * nodes.mailbox['c'], 1)
         return {'iou': nodes.data['iou'] + self.U_iou(h_tild), 'c': c}
+
+    def apply_node_func(self, nodes):
+        iou = nodes.data['iou'] + self.b_iou
+        i, o, u = torch.chunk(iou, 3, 1)
+        i, o, u = torch.sigmoid(i), torch.sigmoid(o), torch.tanh(u)
+        c = i * u + nodes.data['c']
+        h = o * torch.tanh(c)
+        return {'h': h, 'c': c}
