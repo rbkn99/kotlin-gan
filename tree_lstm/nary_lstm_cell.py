@@ -21,7 +21,12 @@ class NaryTreeLSTMCell(torch.nn.Module):
         padding = h_cat.new_zeros(size=(nodes.mailbox['c'].size(0), padding_cs, self.h_size))
         c = torch.cat((nodes.mailbox['c'], padding), dim=1)
         c = torch.sum(f * c, 1)
-        return {'iou': nodes.data['iou'] + self.U_iou(h_cat), 'c': c}
+        iou = None
+        if 'iou' not in nodes.data:
+            iou = self.U_iou(h_cat)
+        else:
+            iou = nodes.data['iou'] + self.U_iou(h_cat)
+        return {'iou': iou, 'c': c}
 
     def apply_node_func(self, nodes):
         iou = nodes.data['iou'] + self.b_iou

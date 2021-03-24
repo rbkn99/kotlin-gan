@@ -4,7 +4,7 @@ import dgl
 import torch
 
 from tree_lstm import BatchedTree, ChildSumTreeLSTMCell, NaryTreeLSTMCell
-from tree_lstm.utils import message_func, apply_node_func
+from tree_lstm.utils import message_func
 
 
 class TreeLSTM(torch.nn.Module):
@@ -31,7 +31,8 @@ class TreeLSTM(torch.nn.Module):
             if stack > 0:
                 prev_batch = batches[stack - 1]
                 cur_batch.batch_dgl_graph.ndata['x'] = prev_batch.batch_dgl_graph.ndata['h']
-            cur_batch.batch_dgl_graph.update_all(message_func, self.cell.reduce_func, apply_node_func)
+            cur_batch.batch_dgl_graph.update_all(message_func, self.cell.reduce_func, self.cell.apply_node_func)
             cur_batch.batch_dgl_graph.ndata['iou'] = self.cell.W_iou(self.dropout(batch.batch_dgl_graph.ndata['x']))
-            dgl.prop_nodes_topo(cur_batch.batch_dgl_graph, message_func, self.cell.reduce_func, False, apply_node_func)
+            dgl.prop_nodes_topo(cur_batch.batch_dgl_graph, message_func, self.cell.reduce_func,
+                                False, self.cell.apply_node_func)
         return batches

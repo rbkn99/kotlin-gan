@@ -20,7 +20,7 @@ class Tree:
         return added_node_id
 
     def add_link(self, child_id, parent_id):
-        self.dgl_graph.add_edge(child_id, parent_id)
+        self.dgl_graph.add_edges([child_id], [parent_id])
 
     def add_node_dgl(self, tensor: torch.Tensor):
         self.dgl_graph.add_nodes(1, data={'x': tensor.unsqueeze(0),
