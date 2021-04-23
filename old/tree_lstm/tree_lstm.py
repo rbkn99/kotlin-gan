@@ -62,6 +62,7 @@ class ChildSumTreeLSTMCell(nn.Module):
         h = o * th.tanh(c)
         return {'h': h, 'c': c}
 
+
 class TreeLSTM(nn.Module):
     def __init__(self,
                  num_vocabs,
