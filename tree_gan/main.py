@@ -44,18 +44,16 @@ def load_action_batch():
 def pretrain_generator(gen, gen_opt, epochs):
     for epoch in range(epochs):
         total_loss = 0
-        stop_iter = 100
+        n_iter = 0
         for prev, parent, target in load_action_batch():
-            if stop_iter < 0:
-                break
-            stop_iter -= 1
+            n_iter += 1
             gen_opt.zero_grad()
             loss = gen.batchNLLLoss(prev, parent, target)
             loss.backward()
             gen_opt.step()
             total_loss += loss.data.item()
         total_loss /= (data_df.shape[0] / BATCH_SIZE) / SEQ_LEN
-        print('NLL loss = %.4f' % total_loss)
+        print('iteration = %d, NLL loss = %.4f' % (n_iter, total_loss))
 
 
 def main():
