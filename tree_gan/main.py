@@ -2,7 +2,8 @@ import os
 import torch
 from generator import Generator
 import pandas as pd
-from torch.autograd import Variable
+from batch_loader import BatchLoader
+from tqdm import trange, tqdm
 
 CUDA = False
 ACTIONS_EMBEDDING_DIM = 128
@@ -15,44 +16,21 @@ BATCH_SIZE = 64
 SEQ_LEN = 20
 
 
-def load_action_batch():
-    global data_df
-    data_np = data_df.values
-    n = SEQ_LEN * BATCH_SIZE
-    for i in range(0, data_np.shape[0] - n - 1, n):
-        prev_batch = torch.zeros(BATCH_SIZE, SEQ_LEN)
-        parent_batch = torch.zeros(BATCH_SIZE, SEQ_LEN)
-        target_batch = torch.zeros(BATCH_SIZE, SEQ_LEN)
-        for j in range(BATCH_SIZE):
-            for q in range(SEQ_LEN):
-                pos = j * BATCH_SIZE + q
-                if data_np[pos, 4] == -1:
-                    prev_batch[j, q] = data_np[pos, 5]
-                else:
-                    prev_batch[j, q] = data_np[data_np[pos, 4], 5]
-                if data_np[pos, 3] == -1:
-                    parent_batch[j, q] = data_np[pos, 2]
-                else:
-                    parent_batch[j, q] = data_np[data_np[pos, 3], 2]
-                target_batch[j, q] = data_np[pos + 1, 5]
-        prev_batch = Variable(prev_batch).type(torch.LongTensor)
-        parent_batch = Variable(prev_batch).type(torch.LongTensor)
-        target_batch = Variable(prev_batch).type(torch.LongTensor)
-        yield prev_batch, parent_batch, target_batch
-
-
 def pretrain_generator(gen, gen_opt, epochs):
+    n_iter = 0
+    loader = BatchLoader(data_df)
     for epoch in range(epochs):
+        print(f'epoch = {epoch} --------------------------------')
         total_loss = 0
-        n_iter = 0
-        for prev, parent, target in load_action_batch():
-            n_iter += 1
+        n_iter += 1
+        for prev, parent, target in tqdm(loader.load_action_batch(SEQ_LEN, BATCH_SIZE, CUDA),
+                                         total=int(NUM_SAMPLES / BATCH_SIZE / SEQ_LEN)):
             gen_opt.zero_grad()
             loss = gen.batchNLLLoss(prev, parent, target)
             loss.backward()
             gen_opt.step()
             total_loss += loss.data.item()
-        total_loss /= (data_df.shape[0] / BATCH_SIZE) / SEQ_LEN
+        total_loss /= NUM_SAMPLES / BATCH_SIZE / SEQ_LEN
         print('iteration = %d, NLL loss = %.4f' % (n_iter, total_loss))
 
 
@@ -67,9 +45,12 @@ def main():
 
 
 if __name__ == '__main__':
-    actions_list = pd.read_csv('../data/actions.csv', index_col=0)['action_name'].to_list()
-    rules_list = pd.read_csv('../data/rules.csv', index_col=0)['rule_name'].to_list()
-    data_df = pd.read_csv('../data/data.csv')
+    base_dir = 'drive/MyDrive/TreeGAN-data/'
+    actions_list = pd.read_csv(base_dir + 'actions.csv', index_col=0)['action_name'].to_list()
+    rules_list = pd.read_csv(base_dir + 'rules.csv', index_col=0)['rule_name'].to_list()
+    data_df = pd.read_csv(base_dir + 'data.csv')
+    NUM_SAMPLES = data_df.shape[0]
+
     main()
     # rules_dir_path = os.path.abspath('../data/rules')
     # actions_data = []
@@ -83,4 +64,3 @@ if __name__ == '__main__':
     #     actions.update(file_actions)
     #     actions_data.append(file_actions)
     # actions_matrix = [[1 if action.startswith(rule) else 0 for action in actions] for rule in rules]
-
