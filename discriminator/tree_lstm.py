@@ -35,7 +35,8 @@ class TreeLSTMCell(nn.Module):
         i, o, u = th.sigmoid(i), th.sigmoid(o), th.tanh(u)
         c = i * u + nodes.data['c']
         h = o * th.tanh(c)
-        return {'h' : h, 'c' : c}
+        return {'h': h, 'c': c}
+
 
 class ChildSumTreeLSTMCell(nn.Module):
     def __init__(self, x_size, h_size):
@@ -70,15 +71,10 @@ class TreeLSTM(nn.Module):
                  h_size,
                  num_classes,
                  dropout,
-                 cell_type='nary',
-                 pretrained_emb=None):
+                 cell_type='nary'):
         super(TreeLSTM, self).__init__()
         self.x_size = x_size
         self.embedding = nn.Embedding(num_vocabs, x_size)
-        if pretrained_emb is not None:
-            print('Using glove')
-            self.embedding.weight.data.copy_(pretrained_emb)
-            self.embedding.weight.requires_grad = True
         self.dropout = nn.Dropout(dropout)
         self.linear = nn.Linear(h_size, num_classes)
         cell = TreeLSTMCell if cell_type == 'nary' else ChildSumTreeLSTMCell
@@ -101,7 +97,7 @@ class TreeLSTM(nn.Module):
         logits : Tensor
             The prediction of each node.
         """
-        # feed embeddinga
+        # feed embedding
         embeds = self.embedding(batch.wordid * batch.mask)
         g.ndata['iou'] = self.cell.W_iou(self.dropout(embeds)) * batch.mask.float().unsqueeze(-1)
         g.ndata['h'] = h

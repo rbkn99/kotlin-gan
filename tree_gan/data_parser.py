@@ -15,7 +15,7 @@ def ast_to_actions_seq(node, rule_names, file_id, parent_id: int, action_id):
     else:
         rule_name = Trees.getNodeText(node, rule_names)
     if rule_name not in rules_dict:
-        new_id = max(rules_dict.values(), default=-1) + 1
+        new_id = max(rules_dict.values()) + 1
         rules_dict[rule_name] = new_id
         rules.append(rule_name)
     action_str = rule_name
@@ -27,10 +27,13 @@ def ast_to_actions_seq(node, rule_names, file_id, parent_id: int, action_id):
             child_subtree_seq = ast_to_actions_seq(child, rule_names,
                                                    file_id, action_id, next_action_id + 1)
             rule_seq.extend(child_subtree_seq)
-            action_str += '_' + Trees.getNodeText(child, rule_names)
+            if isinstance(child, antlr4.tree.Tree.TerminalNodeImpl):
+                action_str += '_' + KotlinLexer.symbolicNames[child.getSymbol().type]
+            else:
+                action_str += '_' + Trees.getNodeText(child, rule_names)
             next_action_id = rule_seq[-1][0]
     if action_str not in actions_dict:
-        actions_dict[action_str] = max(actions_dict.values(), default=-1) + 1
+        actions_dict[action_str] = max(actions_dict.values()) + 1
     rule_seq[0].append(actions_dict[action_str])
     return rule_seq
 
@@ -61,11 +64,7 @@ def main():
                 files_dict[file_path] = file_id
                 actions_seq = process_file(file_path, file_id)
                 file_id += 1
-                if file_id > 10:
-                    break
                 actions_list.extend(actions_seq)
-        if file_id > 10:
-            break
     actions_df = pd.DataFrame(actions_list, columns=df_columns)
     actions_df.to_csv('../data/data.csv', index=False)
 
@@ -76,6 +75,8 @@ if __name__ == "__main__":
     files_dict = dict()
     rules_dict = dict()
     actions_dict = dict()
+    rules_dict['empty'] = 0
+    actions_dict['empty'] = 0
     action_counter = 0
     rules = []
     main()

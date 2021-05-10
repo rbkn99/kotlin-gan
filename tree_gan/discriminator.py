@@ -12,6 +12,53 @@ import torch.nn.functional as F
 import dgl
 
 
+class Tree:
+    def __init__(self, h_size):
+        self.dgl_graph = dgl.DGLGraph()
+        self.h_size = h_size
+
+    def add_node(self, parent_id=None, tensor:th.Tensor = th.Tensor()):
+        self.dgl_graph.add_nodes(1, data={'x': tensor.unsqueeze(0),
+                                          'h': tensor.new_zeros(size=(1, self.h_size)),
+                                          'c': tensor.new_zeros(size=(1, self.h_size))})
+        added_node_id = self.dgl_graph.number_of_nodes() - 1
+        if parent_id:
+            self.dgl_graph.add_edge(added_node_id, parent_id)
+        return added_node_id
+
+    def add_node_bottom_up(self, child_ids, tensor: th.Tensor):
+        self.dgl_graph.add_nodes(1, data={'x': tensor.unsqueeze(0),
+                                          'h': tensor.new_zeros(size=(1, self.h_size)),
+                                          'c': tensor.new_zeros(size=(1, self.h_size))})
+        added_node_id = self.dgl_graph.number_of_nodes() - 1
+        for child_id in child_ids:
+            self.dgl_graph.add_edge(child_id, added_node_id)
+        return added_node_id
+
+    def add_link(self, child_id, parent_id):
+        self.dgl_graph.add_edge(child_id, parent_id)
+
+
+class BatchedTree:
+    def __init__(self, tree_list):
+        graph_list = []
+        for tree in tree_list:
+            graph_list.append(tree.dgl_graph)
+        self.batch_dgl_graph = dgl.batch(graph_list)
+
+    def get_hidden_state(self):
+        graph_list = dgl.unbatch(self.batch_dgl_graph)
+        hidden_states = []
+        max_nodes_num = max([len(graph.nodes) for graph in graph_list])
+        for graph in graph_list:
+            hiddens = graph.ndata['h']
+            node_num, hidden_num = hiddens.size()
+            if len(hiddens) < max_nodes_num:
+                padding = hiddens.new_zeros(size=(max_nodes_num - node_num, hidden_num))
+                hiddens = th.cat((hiddens, padding), dim=0)
+            hidden_states.append(hiddens)
+        return th.stack(hidden_states)
+
 class TreeLSTMCell(nn.Module):
     def __init__(self, x_size, h_size):
         super(TreeLSTMCell, self).__init__()
@@ -36,6 +83,7 @@ class TreeLSTMCell(nn.Module):
         c = i * u + nodes.data['c']
         h = o * th.tanh(c)
         return {'h' : h, 'c' : c}
+
 
 class ChildSumTreeLSTMCell(nn.Module):
     def __init__(self, x_size, h_size):
@@ -84,7 +132,7 @@ class TreeLSTM(nn.Module):
         cell = TreeLSTMCell if cell_type == 'nary' else ChildSumTreeLSTMCell
         self.cell = cell(x_size, h_size)
 
-    def forward(self, batch, g, h, c):
+    def forward(self, batch: BatchedTree, g, h, c):
         """Compute tree-lstm prediction given a batch.
         Parameters
         ----------
