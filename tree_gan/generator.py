@@ -41,14 +41,13 @@ class Generator(nn.Module):
         emb = emb.view(1, -1, self.actions_embedding_dim + self.rules_embedding_dim)
         out, hidden = self.rnn(emb, hidden)
         out = self.rnn2out(out.view(-1, self.hidden_dim))
-        out = F.log_softmax(out, dim=1).detach().numpy()[:, :self.actions_len]
-        out = torch.tensor(out, requires_grad=True)
+        out = Variable(torch.FloatTensor(F.log_softmax(out, dim=1).detach().numpy()[:, :self.actions_len]))
         return out, hidden
 
     def sample(self, max_seq_len, num_samples):
         h = self.init_hidden(num_samples)
 
-        samples = torch.zeros(num_samples, max_seq_len)
+        samples = Variable(torch.zeros(num_samples, max_seq_len))
         stacks = [[(0, 1)] for _ in range(num_samples)]
 
         for t in range(self.max_seq_len):

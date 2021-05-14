@@ -39,8 +39,9 @@ def pretrain_generator(gen, gen_opt, epochs):
 def print_samples(gen, num_samples):
     samples = gen.sample(MAX_SEQ_LEN, num_samples)
     for sample in samples:
+        print(sample)
         for i in sample:
-            print(actions_list[i])
+            print(actions_list[int(i)])
         print()
 
 
@@ -73,7 +74,7 @@ def main():
     gen_optimizer = torch.optim.Adam(gen.parameters(), lr=1e-2)
 
     pretrain_generator(gen, gen_optimizer, PRETRAIN_EPOCHS)
-    print_samples(gen, 5)
+    print_samples(gen, 1)
 
 
 if __name__ == '__main__':
