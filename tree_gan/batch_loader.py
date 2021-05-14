@@ -1,22 +1,24 @@
 import torch
+import numpy as np
 import pandas as pd
 
 
 class Batch:
     def __init__(self, cuda, **kwargs):
         self.cuda = cuda
+        self.requires_grad = kwargs.get('requires_grad', True)
         self.batch_size = kwargs.get('batch_size', 1)
         self.seq_len = kwargs.get('seq_len', 1)
-        self.rule = kwargs.get('rule', torch.zeros(self.batch_size, self.seq_len, requires_grad=True))
-        self.prev = kwargs.get('prev', torch.zeros(self.batch_size, self.seq_len, requires_grad=True))
-        self.parent = kwargs.get('parent', torch.zeros(self.batch_size, self.seq_len, requires_grad=True))
-        self.target = kwargs.get('target', torch.zeros(self.batch_size, self.seq_len, requires_grad=True))
+        self.rule = kwargs.get('rule', torch.zeros(self.batch_size, self.seq_len, requires_grad=self.requires_grad))
+        self.prev = kwargs.get('prev', torch.zeros(self.batch_size, self.seq_len, requires_grad=self.requires_grad))
+        self.parent = kwargs.get('parent', torch.zeros(self.batch_size, self.seq_len, requires_grad=self.requires_grad))
+        self.target = kwargs.get('target', torch.zeros(self.batch_size, self.seq_len, requires_grad=self.requires_grad))
         if not isinstance(self.rule, torch.Tensor):
-            self.rule = torch.tensor([self.rule], requires_grad=True)
+            self.rule = torch.tensor([self.rule] * 5, dtype=torch.float, requires_grad=self.requires_grad)
         if not isinstance(self.prev, torch.Tensor):
-            self.prev = torch.tensor([self.prev], requires_grad=True)
+            self.prev = torch.tensor([self.prev] * 5, dtype=torch.float, requires_grad=self.requires_grad)
         if not isinstance(self.parent, torch.Tensor):
-            self.parent = torch.tensor([self.parent], requires_grad=True)
+            self.parent = torch.tensor([self.parent] * 5, dtype=torch.float, requires_grad=self.requires_grad)
         if cuda:
             self.__to_cuda__()
 
@@ -36,6 +38,13 @@ class Batch:
         self.rule = self.rule.cuda()
         self.target = self.target.cuda()
 
+    def switch_grad(self):
+        self.requires_grad = not self.requires_grad
+        self.parent.requires_grad = self.requires_grad
+        self.prev.requires_grad = self.requires_grad
+        self.rule.requires_grad = self.requires_grad
+        self.target.requires_grad = self.requires_grad
+
 
 class BatchLoader:
     def __init__(self, data_df: pd.DataFrame):
@@ -47,17 +56,19 @@ class BatchLoader:
         batch = None
         for file_id, group in self.data_df.groupby('file_id'):
             if batch_index == 0:
-                batch = Batch(cuda, seq_len=seq_len, batch_size=batch_size)
-            arr = group.values
-            batch.target[batch_index] = arr[:, cols['action_id']]
+                batch = Batch(cuda, seq_len=seq_len, batch_size=batch_size, requires_grad=False)
+            arr = np.pad(group.values, ((0, max(0, seq_len - group.values.shape[0])), (0, 0)))[:seq_len]
+            batch.target[batch_index] = torch.tensor(arr[:, cols['action_id']])
             batch.rule[batch_index, 0] = 0
-            batch.rule[batch_index, 1:] = batch.target[:-1]
-            for i in range(min(seq_len, arr.shape[0])):
+            batch.rule[batch_index, 1:] = torch.tensor(arr[:-1, cols['rule_id']])
+            for i in range(min(seq_len, group.values.shape[0])):
                 batch.prev[batch_index, i] = arr[arr[i, cols['prev_id']], cols['action_id']]
                 batch.parent[batch_index, i] = arr[arr[i, cols['parent_id']], cols['rule_id']]
             batch_index += 1
             if batch_index == batch_size:
                 batch_index = 0
+                batch.switch_grad()
                 yield batch
         if batch_index > 0:
+            batch.switch_grad()
             yield batch

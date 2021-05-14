@@ -7,10 +7,13 @@ from batch_loader import Batch
 
 
 class Generator(nn.Module):
-    def __init__(self, actions_embedding_dim, rules_embedding_dim, actions, rules,
+    def __init__(self, actions_len, rules_len,
+                 actions_embedding_dim, rules_embedding_dim, actions, rules,
                  hidden_dim, max_seq_len, matrix, gpu=False):
         super(Generator, self).__init__()
         self.hidden_dim = hidden_dim
+        self.actions_len = actions_len
+        self.rules_len = rules_len
         self.actions_embedding_dim = actions_embedding_dim
         self.rules_embedding_dim = rules_embedding_dim
         self.max_seq_len = max_seq_len
@@ -19,10 +22,10 @@ class Generator(nn.Module):
         self.gpu = gpu
         self.M = matrix
 
-        self.actions_embeddings = nn.Embedding(len(actions), actions_embedding_dim)
-        self.rules_embeddings = nn.Embedding(len(rules), rules_embedding_dim)
+        self.actions_embeddings = nn.Embedding(actions_len, actions_embedding_dim)
+        self.rules_embeddings = nn.Embedding(rules_len, rules_embedding_dim)
         self.rnn = nn.GRU(actions_embedding_dim + rules_embedding_dim, hidden_dim)
-        self.rnn2out = nn.Linear(hidden_dim, len(actions) + len(rules))
+        self.rnn2out = nn.Linear(hidden_dim, actions_len + rules_len)
 
     def init_hidden(self, batch_size=1):
         h = autograd.Variable(torch.zeros(1, batch_size, self.hidden_dim))
@@ -32,13 +35,14 @@ class Generator(nn.Module):
             return h
 
     def forward(self, state: Batch, hidden: Variable):
-        prev_emb = self.actions_embeddings(state.prev)
-        parent_emb = self.rules_embeddings(state.parent)
+        prev_emb = self.actions_embeddings(state.prev.to(torch.int64))
+        parent_emb = self.rules_embeddings(state.parent.to(torch.int64))
         emb = torch.cat([prev_emb, parent_emb], dim=1)
         emb = emb.view(1, -1, self.actions_embedding_dim + self.rules_embedding_dim)
         out, hidden = self.rnn(emb, hidden)
         out = self.rnn2out(out.view(-1, self.hidden_dim))
-        out = self.M[state.rule, :] * F.log_softmax(out, dim=1)
+        out = F.log_softmax(out, dim=1).detach().numpy()[:, :self.actions_len]
+        out = torch.tensor(out, requires_grad=True)
         return out, hidden
 
     def sample(self, max_seq_len, num_samples):
@@ -59,9 +63,9 @@ class Generator(nn.Module):
                 out, h = self.forward(batch, h)
                 out = torch.multinomial(torch.exp(out), 1)
                 pred_action = out.view(-1).data
-                children = self.actions[pred_action][::-1]
+                children = self.actions[int(pred_action[0])][::-1]
                 stacks[i].extend(list(zip([rule] * len(children), children)))
-                samples[i, t] = pred_action
+                samples[i, t] = int(pred_action[0])
         return samples
 
     def batchNLLLoss(self, batch: Batch):
@@ -72,7 +76,7 @@ class Generator(nn.Module):
         loss = 0
         for i in range(seq_len):
             out, h = self.forward(batch[i], h)
-            loss += loss_fn(out, batch.target[i])
+            loss += loss_fn(out, batch.target[i].to(torch.int64))
         return loss
 
     # def batchPGLoss(self, batch: Batch, reward):
