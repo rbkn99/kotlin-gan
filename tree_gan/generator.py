@@ -28,7 +28,7 @@ class Generator(nn.Module):
         self.rnn2out = nn.Linear(hidden_dim, actions_len + rules_len)
 
     def init_hidden(self, batch_size=1):
-        h = autograd.Variable(torch.zeros(1, batch_size, self.hidden_dim))
+        h = autograd.Variable(torch.zeros(1, batch_size, self.hidden_dim), requires_grad=True)
         if self.gpu:
             return h.cuda()
         else:
@@ -41,7 +41,8 @@ class Generator(nn.Module):
         emb = emb.view(1, -1, self.actions_embedding_dim + self.rules_embedding_dim)
         out, hidden = self.rnn(emb, hidden)
         out = self.rnn2out(out.view(-1, self.hidden_dim))
-        out = Variable(torch.FloatTensor(F.log_softmax(out, dim=1).detach().numpy()[:, :self.actions_len]))
+        out = F.log_softmax(out, dim=1).detach().numpy()[:, :self.actions_len]
+        out = Variable(torch.FloatTensor(out, requires_grad=True))
         return out, hidden
 
     def sample(self, max_seq_len, num_samples):

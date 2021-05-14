@@ -10,16 +10,20 @@ class Batch:
         self.requires_grad = kwargs.get('requires_grad', True)
         self.batch_size = kwargs.get('batch_size', 1)
         self.seq_len = kwargs.get('seq_len', 1)
-        self.rule = kwargs.get('rule', Variable(torch.zeros(self.batch_size, self.seq_len)))
-        self.prev = kwargs.get('prev', Variable(torch.zeros(self.batch_size, self.seq_len)))
-        self.parent = kwargs.get('parent', Variable(torch.zeros(self.batch_size, self.seq_len)))
-        self.target = kwargs.get('target', Variable(torch.zeros(self.batch_size, self.seq_len)))
+        self.rule = kwargs.get('rule',
+                               Variable(torch.zeros(self.batch_size, self.seq_len), requires_grad=self.requires_grad))
+        self.prev = kwargs.get('prev',
+                               Variable(torch.zeros(self.batch_size, self.seq_len), requires_grad=self.requires_grad))
+        self.parent = kwargs.get('parent',
+                                 Variable(torch.zeros(self.batch_size, self.seq_len), requires_grad=self.requires_grad))
+        self.target = kwargs.get('target',
+                                 Variable(torch.zeros(self.batch_size, self.seq_len), requires_grad=self.requires_grad))
         if not isinstance(self.rule, Variable):
-            self.rule = Variable(torch.FloatTensor([self.rule]))
+            self.rule = Variable(torch.FloatTensor([self.rule]), requires_grad=self.requires_grad)
         if not isinstance(self.prev, Variable):
-            self.prev = Variable(torch.FloatTensor([self.prev]))
+            self.prev = Variable(torch.FloatTensor([self.prev]), requires_grad=self.requires_grad)
         if not isinstance(self.parent, Variable):
-            self.parent = Variable(torch.FloatTensor([self.parent]))
+            self.parent = Variable(torch.FloatTensor([self.parent]), requires_grad=self.requires_grad)
         if cuda:
             self.__to_cuda__()
 
@@ -59,9 +63,9 @@ class BatchLoader:
             if batch_index == 0:
                 batch = Batch(cuda, seq_len=seq_len, batch_size=batch_size, requires_grad=False)
             arr = np.pad(group.values, ((0, max(0, seq_len - group.values.shape[0])), (0, 0)))[:seq_len]
-            batch.target[batch_index] = Variable(torch.FloatTensor(arr[:, cols['action_id']]))
+            batch.target[batch_index] = Variable(torch.FloatTensor(arr[:, cols['action_id']]), requires_grad=True)
             batch.rule[batch_index, 0] = 0
-            batch.rule[batch_index, 1:] = Variable(torch.FloatTensor(arr[:-1, cols['rule_id']]))
+            batch.rule[batch_index, 1:] = Variable(torch.FloatTensor(arr[:-1, cols['rule_id']]), requires_grad=True)
             for i in range(min(seq_len, group.values.shape[0])):
                 batch.prev[batch_index, i] = arr[arr[i, cols['prev_id']], cols['action_id']]
                 batch.parent[batch_index, i] = arr[arr[i, cols['parent_id']], cols['rule_id']]
