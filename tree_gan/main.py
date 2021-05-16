@@ -22,7 +22,7 @@ def pretrain_generator(gen, gen_opt, epochs):
     n_iter = 0
     loader = BatchLoader(data_df)
     for epoch in range(epochs):
-        print(f'epoch = {epoch}\n --------------------------------')
+        # print(f'epoch = {epoch}\n --------------------------------')
         total_loss = 0
         n_iter += 1
         for batch in tqdm(loader.load_action_batch(MAX_SEQ_LEN, BATCH_SIZE, CUDA),
@@ -81,6 +81,6 @@ if __name__ == '__main__':
     base_dir = '../data/'
     actions_list = pd.read_csv(base_dir + 'actions.csv', index_col=0, na_filter=False, dtype=str)['action_name'].tolist()
     rules_list = pd.read_csv(base_dir + 'rules.csv', index_col=0, na_filter=False, dtype=str)['rule_name'].tolist()
-    data_df = pd.read_csv(base_dir + 'data.csv')[:1000]
+    data_df = pd.read_csv(base_dir + 'data.csv')
     NUM_SAMPLES = data_df.shape[0]
     main()

@@ -3,6 +3,7 @@ import torch.autograd as autograd
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
+import numpy as np
 from batch_loader import Batch
 
 
@@ -42,13 +43,13 @@ class Generator(nn.Module):
         out, hidden = self.rnn(emb, hidden)
         out = self.rnn2out(out.view(-1, self.hidden_dim))
         out = F.log_softmax(out, dim=1).detach().numpy()[:, :self.actions_len]
-        out = Variable(torch.FloatTensor(out, requires_grad=True))
+        out = Variable(torch.FloatTensor(out), requires_grad=True)
         return out, hidden
 
     def sample(self, max_seq_len, num_samples):
         h = self.init_hidden(num_samples)
 
-        samples = Variable(torch.zeros(num_samples, max_seq_len))
+        samples = np.zeros(num_samples, max_seq_len)
         stacks = [[(0, 1)] for _ in range(num_samples)]
 
         for t in range(self.max_seq_len):
@@ -60,6 +61,7 @@ class Generator(nn.Module):
                 if t > 0:
                     prev = samples[i, t - 1]
                 batch = Batch(self.gpu, parent=parent, rule=rule, prev=prev)
+                batch.convert_to_tensors()
                 out, h = self.forward(batch, h)
                 out = torch.multinomial(torch.exp(out), 1)
                 pred_action = out.view(-1).data
