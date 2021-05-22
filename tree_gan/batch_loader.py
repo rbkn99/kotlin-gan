@@ -13,12 +13,6 @@ class Batch:
         self.prev = kwargs.get('prev', np.zeros((self.batch_size, self.seq_len)))
         self.parent = kwargs.get('parent', np.zeros((self.batch_size, self.seq_len)))
         self.target = kwargs.get('target', np.zeros((self.batch_size, self.seq_len)))
-        if not isinstance(self.rule, Variable):
-            self.rule = np.array(self.rule)
-        if not isinstance(self.prev, Variable):
-            self.prev = np.array(self.prev)
-        if not isinstance(self.parent, Variable):
-            self.parent = np.array(self.parent)
 
     def permute(self):
         self.prev = self.prev.permute(1, 0)
@@ -37,10 +31,10 @@ class Batch:
         self.target = self.target.cuda()
 
     def convert_to_tensors(self):
-        self.prev = Variable(torch.FloatTensor(self.prev), requires_grad=True)
-        self.parent = Variable(torch.FloatTensor(self.parent), requires_grad=True)
-        self.rule = Variable(torch.FloatTensor(self.rule), requires_grad=True)
-        self.target = Variable(torch.FloatTensor(self.target), requires_grad=True)
+        self.prev = Variable(torch.IntTensor(self.prev))
+        self.parent = Variable(torch.IntTensor(self.parent))
+        self.rule = Variable(torch.IntTensor(self.rule))
+        self.target = Variable(torch.IntTensor(self.target))
         if self.cuda:
             self.__to_cuda__()
 

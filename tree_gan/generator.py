@@ -42,14 +42,14 @@ class Generator(nn.Module):
         emb = emb.view(1, -1, self.actions_embedding_dim + self.rules_embedding_dim)
         out, hidden = self.rnn(emb, hidden)
         out = self.rnn2out(out.view(-1, self.hidden_dim))
-        out = F.log_softmax(out, dim=1).detach().numpy()[:, :self.actions_len]
-        out = Variable(torch.FloatTensor(out), requires_grad=True)
+        out = F.log_softmax(out, dim=1)
         return out, hidden
 
     def sample(self, max_seq_len, num_samples):
+        print(num_samples)
         h = self.init_hidden(num_samples)
-
-        samples = np.zeros(num_samples, max_seq_len)
+        print('zzz', h.size())
+        samples = np.zeros((num_samples, max_seq_len))
         stacks = [[(0, 1)] for _ in range(num_samples)]
 
         for t in range(self.max_seq_len):
@@ -60,7 +60,8 @@ class Generator(nn.Module):
                 prev = 0
                 if t > 0:
                     prev = samples[i, t - 1]
-                batch = Batch(self.gpu, parent=parent, rule=rule, prev=prev)
+                batch = Batch(self.gpu, parent=np.array([parent]),
+                              rule=np.array([rule]), prev=np.array([prev]))
                 batch.convert_to_tensors()
                 out, h = self.forward(batch, h)
                 out = torch.multinomial(torch.exp(out), 1)
@@ -74,6 +75,7 @@ class Generator(nn.Module):
         loss_fn = nn.NLLLoss()
         batch_size, seq_len = batch.batch_size, batch.seq_len
         h = self.init_hidden(batch_size)
+        print('xxx', h.size())
         batch.permute()
         loss = 0
         for i in range(seq_len):

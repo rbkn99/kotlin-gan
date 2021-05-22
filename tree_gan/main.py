@@ -74,13 +74,14 @@ def main():
     gen_optimizer = torch.optim.Adam(gen.parameters(), lr=1e-2)
 
     pretrain_generator(gen, gen_optimizer, PRETRAIN_EPOCHS)
-    print_samples(gen, 1)
+    for i in range(10):
+        print_samples(gen, 1)
 
 
 if __name__ == '__main__':
     base_dir = '../data/'
     actions_list = pd.read_csv(base_dir + 'actions.csv', index_col=0, na_filter=False, dtype=str)['action_name'].tolist()
     rules_list = pd.read_csv(base_dir + 'rules.csv', index_col=0, na_filter=False, dtype=str)['rule_name'].tolist()
-    data_df = pd.read_csv(base_dir + 'data.csv')
+    data_df = pd.read_csv(base_dir + 'data.csv')[10000:11000]
     NUM_SAMPLES = data_df.shape[0]
     main()
